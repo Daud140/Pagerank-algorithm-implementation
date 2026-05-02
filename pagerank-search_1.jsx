@@ -1,0 +1,1394 @@
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Search, Play, Pause, RotateCcw, ChevronRight, ArrowRight, X, BookOpen, Network, BarChart3, Sparkles, Info } from 'lucide-react';
+
+// ═══════════════════════════════════════════════════════════════
+// CORPUS
+// 20 interconnected pages. Links are inferred from the content:
+// any time one page's title appears in another page's body, that
+// counts as a hyperlink in the graph.
+// ═══════════════════════════════════════════════════════════════
+
+const PAGES = [
+  {
+    id: 'pagerank',
+    title: 'PageRank',
+    content: `PageRank is an algorithm developed by Larry Page and Sergey Brin at Stanford University in 1996. It assigns a numerical weight to each element of a hyperlinked set of documents, such as the World Wide Web, with the purpose of measuring relative importance. The PageRank algorithm formed the foundation of Google's original Search Engine. The intuition is elegant: a page is important if many important pages link to it. Mathematically, this is computed as the principal Eigenvector of a modified adjacency matrix of the link graph. The algorithm converges through Power Iteration, a technique from Linear Algebra. PageRank is closely related to the theory of Markov Chains and the concept of a Random Walk on a graph. The Damping Factor models the probability that a random surfer continues clicking links rather than jumping to a random page. The HITS Algorithm by Jon Kleinberg is a contemporary alternative method for link analysis.`,
+  },
+  {
+    id: 'larry-page',
+    title: 'Larry Page',
+    content: `Larry Page is an American computer scientist and co-founder of Google. While a doctoral student at Stanford University, Page collaborated with Sergey Brin on a research project that produced the PageRank algorithm. The pair founded Google in 1998 to commercialize their work. Page served as Google's CEO multiple times across the company's history. His early interest in citation analysis — the practice of evaluating academic papers by counting incoming references — directly inspired the design of PageRank.`,
+  },
+  {
+    id: 'sergey-brin',
+    title: 'Sergey Brin',
+    content: `Sergey Brin is an American computer scientist and co-founder of Google. Born in Moscow, Brin moved to the United States as a child and later studied at Stanford University, where he met Larry Page. Together they developed PageRank as part of a research project on the World Wide Web. Brin's mathematical background contributed the rigorous foundation linking the ranking problem to Eigenvectors and Markov Chains. He served in various leadership roles at Google for over two decades.`,
+  },
+  {
+    id: 'google',
+    title: 'Google',
+    content: `Google is an American technology company founded in 1998 by Larry Page and Sergey Brin. The company began as a research project at Stanford University, where the founders developed the PageRank algorithm to rank pages on the World Wide Web. Google's original Search Engine differentiated itself from competitors by treating links between pages as votes of confidence — a citation-based approach made possible by PageRank. The company has since expanded into advertising, cloud computing, mobile operating systems, and artificial intelligence.`,
+  },
+  {
+    id: 'stanford',
+    title: 'Stanford University',
+    content: `Stanford University is a private research university in Stanford, California. It has been a central institution in the development of computer science and the modern technology industry. Larry Page and Sergey Brin met as graduate students at Stanford University, where they developed the PageRank algorithm and laid the foundations of Google. The university's computer science department has produced foundational research on the World Wide Web, Information Retrieval, and Search Engine design.`,
+  },
+  {
+    id: 'search-engine',
+    title: 'Search Engine',
+    content: `A Search Engine is a software system designed to retrieve documents from a large collection in response to a user query. Modern search engines combine techniques from Information Retrieval — such as TF-IDF for keyword scoring — with link-based ranking algorithms like PageRank and the HITS Algorithm. They typically work in three phases: Web Crawling to discover documents on the World Wide Web, indexing to organize them for fast retrieval, and ranking to order results by relevance. Google revolutionized the field in the late 1990s by demonstrating that link structure carried as much signal as the text content of Hypertext documents.`,
+  },
+  {
+    id: 'www',
+    title: 'World Wide Web',
+    content: `The World Wide Web is a global information system of Hypertext documents linked together and accessed via the internet. It was invented by Tim Berners-Lee at CERN in 1989. The Web is structurally a directed graph: pages link to other pages through hyperlinks. This graph structure is the substrate on which Search Engine ranking algorithms like PageRank operate. Web Crawling tools traverse this graph to discover and index its contents.`,
+  },
+  {
+    id: 'tim-berners-lee',
+    title: 'Tim Berners-Lee',
+    content: `Tim Berners-Lee is a British computer scientist who invented the World Wide Web in 1989 while working at CERN. He created the first web browser, the first web server, and the foundational specifications for HTTP, HTML, and URLs. His vision of universal Hypertext made possible the linked document graph that would later be analyzed by algorithms like PageRank.`,
+  },
+  {
+    id: 'hypertext',
+    title: 'Hypertext',
+    content: `Hypertext is text that contains links to other text, allowing readers to navigate non-linearly between documents. The concept was articulated by Vannevar Bush in 1945 and developed further by Ted Nelson in the 1960s. Tim Berners-Lee's implementation of Hypertext on the internet became the World Wide Web. The link structure of hypertext documents is precisely what enables algorithms like PageRank to compute importance scores.`,
+  },
+  {
+    id: 'web-crawling',
+    title: 'Web Crawling',
+    content: `Web Crawling is the process by which a Search Engine systematically browses the World Wide Web to discover and download pages. A crawler — sometimes called a spider or bot — starts from a set of seed URLs, downloads the corresponding pages, extracts links, and follows them to find more pages. The output of crawling is the corpus over which Information Retrieval and PageRank computations are performed.`,
+  },
+  {
+    id: 'information-retrieval',
+    title: 'Information Retrieval',
+    content: `Information Retrieval is the field of computer science concerned with finding relevant documents in a large collection. Classical Information Retrieval focused on text-based scoring methods such as TF-IDF, which weights terms by their frequency in a document and rarity across the corpus. The advent of the World Wide Web introduced a new dimension: link analysis. Algorithms like PageRank and the HITS Algorithm exploit the graph structure of Hypertext, complementing traditional text-based Search Engine techniques.`,
+  },
+  {
+    id: 'tfidf',
+    title: 'TF-IDF',
+    content: `TF-IDF stands for Term Frequency–Inverse Document Frequency, a numerical statistic used in Information Retrieval to reflect how important a word is to a document in a collection. The score increases with the term's frequency in the document but is offset by the term's frequency across the corpus. TF-IDF was the dominant scoring method in early Search Engine design, before link-based methods like PageRank demonstrated the value of structural signals.`,
+  },
+  {
+    id: 'hits',
+    title: 'HITS Algorithm',
+    content: `The HITS Algorithm — Hyperlink-Induced Topic Search — is a link analysis algorithm developed by Jon Kleinberg in 1998, contemporaneous with PageRank. HITS computes two scores per page: a hub score and an authority score. Hubs are pages that link to many authorities; authorities are pages linked to by many hubs. Like PageRank, the HITS Algorithm is used in Information Retrieval and Search Engine ranking, but it operates on a query-specific subgraph rather than the entire corpus.`,
+  },
+  {
+    id: 'eigenvectors',
+    title: 'Eigenvectors',
+    content: `In Linear Algebra, an Eigenvector of a square matrix is a non-zero vector that, when the matrix is applied to it, changes only by a scalar factor — its eigenvalue. Eigenvectors capture the principal directions of a linear transformation. PageRank is mathematically defined as the dominant Eigenvector of the modified link matrix of the World Wide Web. Power Iteration, a simple iterative method, is the standard technique for computing this eigenvector. Eigenvectors also appear in the analysis of Markov Chains.`,
+  },
+  {
+    id: 'linear-algebra',
+    title: 'Linear Algebra',
+    content: `Linear Algebra is the branch of mathematics concerned with vector spaces and linear transformations between them. It provides the language and tools for expressing problems involving multiple linear equations, including those that arise in graph theory and Markov Chains. The PageRank algorithm is, at its core, an exercise in Linear Algebra: it computes the principal Eigenvector of a stochastic matrix using Power Iteration.`,
+  },
+  {
+    id: 'markov-chains',
+    title: 'Markov Chains',
+    content: `A Markov Chain is a stochastic process in which the probability of transitioning to the next state depends only on the current state. The Random Walk model underlying PageRank is a Markov Chain over the link graph: at each step, a surfer moves from the current page to a uniformly random outgoing link. The stationary distribution of this Markov Chain — the long-run probability of being at each page — is precisely the PageRank score. The Damping Factor modifies the chain to ensure it has a unique stationary distribution.`,
+  },
+  {
+    id: 'random-walk',
+    title: 'Random Walk',
+    content: `A Random Walk is a mathematical formalization of a path consisting of a succession of random steps. In the context of PageRank, the random walk takes place on the link graph of the World Wide Web: a surfer starts at a random page and at each step follows a uniformly chosen outgoing link, occasionally teleporting to a random page (controlled by the Damping Factor). Random Walks are a special case of Markov Chains.`,
+  },
+  {
+    id: 'power-iteration',
+    title: 'Power Iteration',
+    content: `Power Iteration is a simple algorithm from Linear Algebra for computing the dominant Eigenvector of a matrix. The method works by repeatedly multiplying a starting vector by the matrix and renormalizing, until the vector converges. PageRank is computed using Power Iteration on the modified link matrix of the World Wide Web. Convergence is typically rapid — fifty iterations suffice for most practical link graphs.`,
+  },
+  {
+    id: 'damping-factor',
+    title: 'Damping Factor',
+    content: `The Damping Factor in PageRank, traditionally denoted d and set to 0.85, models the probability that a random surfer continues clicking outgoing links from the current page rather than teleporting to a random page in the corpus. Mathematically, the damping factor ensures the corresponding Markov Chain is irreducible and aperiodic, guaranteeing a unique stationary distribution. Without damping, dangling nodes — pages with no outgoing links — would cause the Random Walk to get stuck.`,
+  },
+  {
+    id: 'convergence',
+    title: 'Convergence',
+    content: `Convergence in iterative numerical methods refers to the property that a sequence of approximations approaches a fixed limit. In PageRank, Power Iteration is run until the change between successive iterations falls below a chosen tolerance — typically a few dozen iterations are sufficient. The rate of convergence depends on the spectral properties of the link matrix, specifically the gap between the largest and second-largest eigenvalues.`,
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// ENGINE — the "backend"
+// ═══════════════════════════════════════════════════════════════
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Crawl: scan each page's content for mentions of other pages' titles.
+// A title appearing in a page's body becomes a hyperlink edge.
+function buildLinkGraph(pages) {
+  const titleToId = {};
+  pages.forEach((p) => { titleToId[p.title.toLowerCase()] = p.id; });
+
+  const outLinks = {};
+  pages.forEach((p) => { outLinks[p.id] = new Set(); });
+
+  // Sort titles longest-first so "PageRank" matches before "Page" would
+  const titles = pages.map((p) => p.title).sort((a, b) => b.length - a.length);
+  const re = new RegExp(`\\b(${titles.map(escapeRegex).join('|')})\\b`, 'gi');
+
+  pages.forEach((p) => {
+    const seen = new Set();
+    p.content.replace(re, (m) => {
+      const targetId = titleToId[m.toLowerCase()];
+      if (targetId && targetId !== p.id) seen.add(targetId);
+      return m;
+    });
+    outLinks[p.id] = seen;
+  });
+
+  return outLinks;
+}
+
+// PageRank via Power Iteration.
+// Returns final scores plus full history (one snapshot per iteration)
+// so the UI can animate convergence.
+// Analysis of algorithm algo
+function computePageRank(graph, opts = {}) {
+  const { damping = 0.85, maxIterations = 60, tolerance = 1e-7 } = opts;
+  const ids = Object.keys(graph);
+  const N = ids.length;
+
+  let pr = {};
+  ids.forEach((id) => { pr[id] = 1 / N; });
+
+  const inLinks = {};
+  ids.forEach((id) => { inLinks[id] = []; });
+  ids.forEach((id) => {
+    graph[id].forEach((tgt) => inLinks[tgt].push(id));
+  });
+
+  const outDegree = {};
+  ids.forEach((id) => { outDegree[id] = graph[id].size; });
+
+  const history = [{ ...pr }];
+  let iterationsRun = 0;
+  let converged = false;
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    // Sum of PR mass on dangling nodes (no outlinks) — redistribute uniformly
+    let danglingMass = 0;
+    ids.forEach((id) => { if (outDegree[id] === 0) danglingMass += pr[id]; });
+
+    const next = {};
+    ids.forEach((id) => {
+      let s = 0;
+      inLinks[id].forEach((src) => { s += pr[src] / outDegree[src]; });
+      next[id] = (1 - damping) / N + damping * (s + danglingMass / N);
+    });
+
+    let diff = 0;
+    ids.forEach((id) => { diff += Math.abs(next[id] - pr[id]); });
+
+    pr = next;
+    history.push({ ...pr });
+    iterationsRun = iter + 1;
+
+    if (diff < tolerance) { converged = true; break; }
+  }
+
+  return { pageRank: pr, history, iterationsRun, converged, damping };
+}
+
+// Naive TF score: term frequency with a title boost. No PageRank.
+function tfScore(query, page) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return 0;
+  const titleLower = page.title.toLowerCase();
+  const contentLower = page.content.toLowerCase();
+  let score = 0;
+  terms.forEach((term) => {
+    if (titleLower.includes(term)) score += 4;
+    // count non-overlapping occurrences
+    const re = new RegExp(escapeRegex(term), 'gi');
+    const matches = contentLower.match(re);
+    if (matches) score += matches.length;
+  });
+  return score;
+}
+
+// Combined ranking: TF score weighted by PageRank.
+// We use TF * (1 + α * PR_normalized) so high-PR pages get a big boost
+// but pages with zero TF still score zero (must match the query).
+function combinedScore(query, page, prScore, prMax, alpha = 8) {
+  const tf = tfScore(query, page);
+  if (tf === 0) return 0;
+  const prNorm = prMax > 0 ? prScore / prMax : 0;
+  return tf * (1 + alpha * prNorm);
+}
+
+function searchPages(query, pages, prScores) {
+  if (!query.trim()) return [];
+  const prMax = Math.max(...Object.values(prScores));
+  const results = pages
+    .map((p) => ({
+      page: p,
+      tf: tfScore(query, p),
+      pr: prScores[p.id],
+      combined: combinedScore(query, p, prScores[p.id], prMax),
+    }))
+    .filter((r) => r.tf > 0);
+  return results;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FORCE-DIRECTED LAYOUT for the graph viz.
+// Deterministic via seeded RNG so the layout is stable.
+// ═══════════════════════════════════════════════════════════════
+
+function computeForceLayout(pageIds, edges, prScores, opts = {}) {
+  const { width = 380, height = 380, iterations = 400 } = opts;
+  let seed = 1337;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+    return ((seed >>> 0) / 0xffffffff);
+  };
+
+  const pos = {};
+  const cx = width / 2, cy = height / 2;
+  pageIds.forEach((id, i) => {
+    const a = (i / pageIds.length) * 2 * Math.PI;
+    pos[id] = {
+      x: cx + 90 * Math.cos(a) + (rand() - 0.5) * 30,
+      y: cy + 90 * Math.sin(a) + (rand() - 0.5) * 30,
+    };
+  });
+
+  const k = Math.sqrt((width * height) / pageIds.length) * 0.8;
+
+  for (let iter = 0; iter < iterations; iter++) {
+    const temp = (1 - iter / iterations) * 25;
+    const fx = {}, fy = {};
+    pageIds.forEach((id) => { fx[id] = 0; fy[id] = 0; });
+
+    // Repulsion (every pair)
+    for (let i = 0; i < pageIds.length; i++) {
+      for (let j = i + 1; j < pageIds.length; j++) {
+        const a = pos[pageIds[i]], b = pos[pageIds[j]];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d = Math.sqrt(dx * dx + dy * dy) || 0.1;
+        const f = (k * k) / d;
+        fx[pageIds[i]] += (dx / d) * f;
+        fy[pageIds[i]] += (dy / d) * f;
+        fx[pageIds[j]] -= (dx / d) * f;
+        fy[pageIds[j]] -= (dy / d) * f;
+      }
+    }
+
+    // Attraction along edges
+    edges.forEach(([s, t]) => {
+      const a = pos[s], b = pos[t];
+      let dx = a.x - b.x, dy = a.y - b.y;
+      let d = Math.sqrt(dx * dx + dy * dy) || 0.1;
+      const f = (d * d) / k;
+      fx[s] -= (dx / d) * f;
+      fy[s] -= (dy / d) * f;
+      fx[t] += (dx / d) * f;
+      fy[t] += (dy / d) * f;
+    });
+
+    // Gentle gravity to center
+    pageIds.forEach((id) => {
+      fx[id] += (cx - pos[id].x) * 0.04;
+      fy[id] += (cy - pos[id].y) * 0.04;
+    });
+
+    // Apply
+    pageIds.forEach((id) => {
+      const mag = Math.sqrt(fx[id] * fx[id] + fy[id] * fy[id]) || 0.01;
+      const lim = Math.min(mag, temp);
+      pos[id].x += (fx[id] / mag) * lim;
+      pos[id].y += (fy[id] / mag) * lim;
+      const m = 28;
+      pos[id].x = Math.max(m, Math.min(width - m, pos[id].x));
+      pos[id].y = Math.max(m, Math.min(height - m, pos[id].y));
+    });
+  }
+  return pos;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LINKIFY: turn page content into clickable JSX
+// ═══════════════════════════════════════════════════════════════
+
+function linkifyContent(content, pages, currentId, onNavigate) {
+  const others = pages.filter((p) => p.id !== currentId);
+  const titles = others.map((p) => p.title).sort((a, b) => b.length - a.length);
+  if (titles.length === 0) return content;
+  const re = new RegExp(`\\b(${titles.map(escapeRegex).join('|')})\\b`, 'gi');
+  const out = [];
+  let last = 0, m, key = 0;
+  while ((m = re.exec(content)) !== null) {
+    if (m.index > last) out.push(content.slice(last, m.index));
+    const target = others.find((p) => p.title.toLowerCase() === m[0].toLowerCase());
+    if (target) {
+      out.push(
+        <button
+          key={`lnk-${key++}`}
+          onClick={() => onNavigate(target.id)}
+          className="font-medium underline deco-accent-soft decoration-1 uo-3 hover-deco-accent hover-text-accent transition-colors"
+          style={{ color: 'var(--accent)' }}
+        >{m[0]}</button>
+      );
+    } else {
+      out.push(m[0]);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < content.length) out.push(content.slice(last));
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+export default function PageRankSearch() {
+  // ─── Engine state (computed once from corpus) ───
+  const graph = useMemo(() => buildLinkGraph(PAGES), []);
+  const prResult = useMemo(() => computePageRank(graph), [graph]);
+  const { pageRank, history, iterationsRun, converged, damping } = prResult;
+
+  const edges = useMemo(() => {
+    const out = [];
+    Object.entries(graph).forEach(([src, tgts]) => {
+      tgts.forEach((t) => out.push([src, t]));
+    });
+    return out;
+  }, [graph]);
+
+  const layout = useMemo(
+    () => computeForceLayout(PAGES.map((p) => p.id), edges, pageRank),
+    [edges, pageRank]
+  );
+
+  // ─── UI state ───
+  const [query, setQuery] = useState('');
+  const [activeQuery, setActiveQuery] = useState('');
+  const [selectedId, setSelectedId] = useState(null);
+  const [view, setView] = useState('home'); // 'home' | 'search' | 'page' | 'algo'
+  const [compareMode, setCompareMode] = useState(false);
+  const [hoveredId, setHoveredId] = useState(null);
+
+  // Iteration playback state
+  const [iterStep, setIterStep] = useState(history.length - 1);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    if (!playing) return;
+    if (iterStep >= history.length - 1) { setPlaying(false); return; }
+    const t = setTimeout(() => setIterStep((s) => Math.min(s + 1, history.length - 1)), 220);
+    return () => clearTimeout(t);
+  }, [playing, iterStep, history.length]);
+
+  const displayedPR = history[iterStep] || pageRank;
+  const isFinalPR = iterStep === history.length - 1;
+
+  // ─── Search ───
+  const submitSearch = useCallback(() => {
+    const q = query.trim();
+    setActiveQuery(q);
+    if (q) { setView('search'); setSelectedId(null); }
+    else { setView('home'); }
+  }, [query]);
+
+  const results = useMemo(() => searchPages(activeQuery, PAGES, pageRank), [activeQuery, pageRank]);
+  const sortedByCombined = useMemo(() => [...results].sort((a, b) => b.combined - a.combined), [results]);
+  const sortedByTF = useMemo(() => [...results].sort((a, b) => b.tf - a.tf), [results]);
+
+  const navigate = useCallback((id) => {
+    setSelectedId(id);
+    setView('page');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const goHome = () => { setView('home'); setSelectedId(null); setActiveQuery(''); setQuery(''); };
+
+  const selectedPage = selectedId ? PAGES.find((p) => p.id === selectedId) : null;
+
+  // Stats for the header pill
+  const totalLinks = edges.length;
+  const numPages = PAGES.length;
+
+  // PageRank-sorted full list (for graph panel + home)
+  const prSortedPages = useMemo(() =>
+    [...PAGES].map((p) => ({ ...p, pr: displayedPR[p.id] })).sort((a, b) => b.pr - a.pr),
+    [displayedPR]
+  );
+  const prMax = Math.max(...Object.values(displayedPR));
+
+  // Suggested queries
+  const suggestions = ['google', 'eigenvector', 'random walk', 'tim berners-lee', 'damping'];
+
+  return (
+    <div className="min-h-screen w-full" style={{ background: 'var(--bg)', color: 'var(--ink)' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+          --bg: #f1e9d8;
+          --bg-warm: #ebe1cb;
+          --surface: #faf4e4;
+          --surface-2: #efe5cf;
+          --paper: #fdfaf0;
+          --ink: #1c1814;
+          --ink-2: #4a4337;
+          --ink-3: #7a7060;
+          --border: #ddcfb1;
+          --border-strong: #b8a679;
+          --accent: #b53a08;
+          --accent-soft: #d96a3a;
+          --accent-bg: #f5dcc4;
+          --teal: #1f4858;
+          --gold: #c89a3c;
+          --highlight: #f7e3a3;
+        }
+
+        /* utility helpers (no Tailwind JIT in artifacts) */
+        .t-10 { font-size: 10px; line-height: 1.4; }
+        .t-11 { font-size: 11px; line-height: 1.4; }
+        .tk-cap { letter-spacing: 0.18em; }
+        .tk-cap-wide { letter-spacing: 0.2em; }
+        .uo-3 { text-underline-offset: 3px; }
+        .deco-accent-soft { text-decoration-color: rgba(181,58,8,0.4); }
+        .hover-bg-surface:hover { background: var(--surface); }
+        .hover-text-accent:hover { color: var(--accent); }
+        .group:hover .group-hover-text-accent { color: var(--accent); }
+        .hover-deco-accent:hover { text-decoration-color: var(--accent); }
+        .range-accent { accent-color: var(--accent); }
+        .lh-snug-105 { line-height: 1.05; }
+        .lh-relax-17 { line-height: 1.7; }
+        .lh-relax-7 { line-height: 1.7; }
+        .grid-main-aside { grid-template-columns: 1fr 400px; }
+        .maxh-screen-3 { max-height: calc(100vh - 3rem); }
+        @media (min-width: 1024px) {
+          .lg-grid-main-aside { grid-template-columns: 1fr 400px; }
+          .lg-maxh-screen-3 { max-height: calc(100vh - 3rem); }
+        }
+
+        .font-display { font-family: 'Fraunces', 'Source Serif 4', serif; font-optical-sizing: auto; }
+        .font-body { font-family: 'Source Serif 4', Georgia, serif; }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+        /* Subtle paper grain */
+        .paper-grain {
+          background-image:
+            radial-gradient(circle at 1px 1px, rgba(28,24,20,0.04) 1px, transparent 0);
+          background-size: 4px 4px;
+        }
+
+        /* Drop cap for first paragraph in page view */
+        .dropcap::first-letter {
+          font-family: 'Fraunces', serif;
+          font-weight: 700;
+          font-size: 3.4em;
+          float: left;
+          line-height: 0.85;
+          padding: 0.05em 0.08em 0 0;
+          color: var(--accent);
+        }
+
+        /* Animation */
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+
+        @keyframes barGrow {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-warm); }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 2px solid var(--bg-warm); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+        /* Selection */
+        ::selection { background: var(--highlight); color: var(--ink); }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-6 py-6 lg:px-10 lg:py-10 paper-grain">
+
+        {/* ═══ HEADER ═══ */}
+        <header className="flex flex-wrap items-end justify-between gap-4 pb-6 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div>
+            <button
+              onClick={goHome}
+              className="text-left group"
+            >
+              <div className="flex items-baseline gap-3">
+                <span className="font-mono t-11 uppercase tk-cap-wide" style={{ color: 'var(--ink-3)' }}>
+                  ☞ a small search engine, ranked by
+                </span>
+              </div>
+              <h1 className="font-display font-black text-5xl lg:text-7xl leading-none tracking-tight" style={{ color: 'var(--ink)' }}>
+                Page<span style={{ color: 'var(--accent)', fontStyle: 'italic', fontWeight: 500 }}>Rank</span>
+              </h1>
+              <p className="font-body text-sm lg:text-base italic mt-1" style={{ color: 'var(--ink-2)' }}>
+                — the algorithm that built Google, on a corpus of {numPages} pages about itself.
+              </p>
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <StatPill label="pages" value={numPages} />
+            <StatPill label="hyperlinks" value={totalLinks} />
+            <StatPill
+              label={converged ? 'converged' : 'iterations'}
+              value={iterationsRun}
+              accent={converged}
+            />
+            <button
+              onClick={() => setView('algo')}
+              className="ml-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono uppercase tracking-wider transition-colors"
+              style={{
+                background: view === 'algo' ? 'var(--ink)' : 'transparent',
+                color: view === 'algo' ? 'var(--paper)' : 'var(--ink)',
+                border: `1px solid ${view === 'algo' ? 'var(--ink)' : 'var(--border-strong)'}`,
+              }}
+            >
+              <BookOpen size={12} /> the math
+            </button>
+          </div>
+        </header>
+
+        {/* ═══ SEARCH BAR ═══ */}
+        <section className="mt-8 mb-6">
+          <div className="relative">
+            <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--ink-3)' }} />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
+              placeholder="Search the corpus…  (try ‘google’, ‘eigenvector’, ‘random walk’)"
+              className="font-body w-full pl-14 pr-32 py-5 text-lg lg:text-xl rounded-md focus:outline-none transition-shadow"
+              style={{
+                background: 'var(--paper)',
+                border: '1px solid var(--border-strong)',
+                color: 'var(--ink)',
+                boxShadow: '0 1px 0 rgba(28,24,20,0.04), inset 0 1px 0 rgba(255,255,255,0.5)',
+              }}
+              autoFocus
+            />
+            <button
+              onClick={submitSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 px-5 py-2.5 rounded font-mono text-xs uppercase tracking-wider transition-all"
+              style={{ background: 'var(--ink)', color: 'var(--paper)' }}
+            >
+              search →
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="font-mono uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>try:</span>
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setQuery(s); setActiveQuery(s); setView('search'); setSelectedId(null); }}
+                className="font-mono px-2.5 py-1 rounded-full transition-colors"
+                style={{
+                  background: activeQuery === s ? 'var(--accent-bg)' : 'transparent',
+                  color: activeQuery === s ? 'var(--accent)' : 'var(--ink-2)',
+                  border: `1px solid ${activeQuery === s ? 'var(--accent)' : 'var(--border)'}`,
+                }}
+              >{s}</button>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══ MAIN GRID ═══ */}
+        <div className="grid grid-cols-1 lg-grid-main-aside gap-8 lg:gap-10">
+
+          {/* ─── LEFT: dynamic content ─── */}
+          <main className="min-w-0">
+            {view === 'home' && (
+              <HomeView pages={prSortedPages} prMax={prMax} onNavigate={navigate} />
+            )}
+            {view === 'search' && (
+              <SearchView
+                query={activeQuery}
+                results={sortedByCombined}
+                tfResults={sortedByTF}
+                compareMode={compareMode}
+                setCompareMode={setCompareMode}
+                onNavigate={navigate}
+                allPages={PAGES}
+              />
+            )}
+            {view === 'page' && selectedPage && (
+              <PageView
+                page={selectedPage}
+                pages={PAGES}
+                pageRank={pageRank}
+                graph={graph}
+                onNavigate={navigate}
+                onBack={() => activeQuery ? setView('search') : setView('home')}
+                backLabel={activeQuery ? `back to results for “${activeQuery}”` : 'back to index'}
+              />
+            )}
+            {view === 'algo' && (
+              <AlgoView damping={damping} iterations={iterationsRun} onBack={goHome} />
+            )}
+          </main>
+
+          {/* ─── RIGHT: persistent panels ─── */}
+          <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start lg-maxh-screen-3 lg:overflow-y-auto pb-6">
+            <GraphPanel
+              pages={PAGES}
+              edges={edges}
+              layout={layout}
+              prScores={displayedPR}
+              prMax={prMax}
+              selectedId={selectedId}
+              hoveredId={hoveredId}
+              onHover={setHoveredId}
+              onNavigate={navigate}
+              graph={graph}
+            />
+
+            <IterationPanel
+              history={history}
+              iterStep={iterStep}
+              setIterStep={setIterStep}
+              playing={playing}
+              setPlaying={setPlaying}
+              isFinalPR={isFinalPR}
+              converged={converged}
+              iterationsRun={iterationsRun}
+            />
+
+            <RankPanel
+              pages={prSortedPages}
+              prMax={prMax}
+              onNavigate={navigate}
+              selectedId={selectedId}
+              hoveredId={hoveredId}
+              onHover={setHoveredId}
+            />
+          </aside>
+        </div>
+
+        <footer className="mt-16 pt-6 border-t font-mono t-11 uppercase tk-cap flex flex-wrap justify-between gap-3" style={{ borderColor: 'var(--border)', color: 'var(--ink-3)' }}>
+          <span>Σ engine: crawl · index · pagerank · rank</span>
+          <span>damping d = {damping} · power iteration · ℓ¹ tolerance 10⁻⁷</span>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+
+function StatPill({ label, value, accent }) {
+  return (
+    <div
+      className="font-mono t-11 uppercase tracking-wider px-3 py-1.5 rounded-full inline-flex items-center gap-2"
+      style={{
+        background: accent ? 'var(--accent-bg)' : 'var(--surface-2)',
+        color: accent ? 'var(--accent)' : 'var(--ink-2)',
+        border: `1px solid ${accent ? 'var(--accent)' : 'var(--border)'}`,
+      }}
+    >
+      <span style={{ opacity: 0.7 }}>{label}</span>
+      <span className="font-semibold tabular-nums" style={{ color: accent ? 'var(--accent)' : 'var(--ink)' }}>{value}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// HOME VIEW — index of pages, sorted by PageRank
+// ─────────────────────────────────────────────────────────────
+
+function HomeView({ pages, prMax, onNavigate }) {
+  return (
+    <div className="fade-up">
+      <div className="flex items-baseline justify-between mb-4">
+        <h2 className="font-display text-2xl font-medium" style={{ color: 'var(--ink)' }}>
+          The corpus, by importance
+        </h2>
+        <span className="font-mono t-11 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+          ranked by pagerank
+        </span>
+      </div>
+      <p className="font-body text-base mb-6 italic" style={{ color: 'var(--ink-2)' }}>
+        Each page below has been crawled, indexed, and assigned an importance score by running PageRank to convergence on the link graph. Higher-ranked pages are the ones other pages link to most heavily — directly or transitively. Click any page to read it; the side panel will animate the corresponding node in the graph.
+      </p>
+
+      <ol className="space-y-1">
+        {pages.map((p, i) => (
+          <li key={p.id} className="fade-up" style={{ animationDelay: `${i * 25}ms` }}>
+            <button
+              onClick={() => onNavigate(p.id)}
+              className="group w-full text-left flex items-baseline gap-4 py-3 px-3 rounded transition-colors hover-bg-surface"
+            >
+              <span className="font-mono text-xs tabular-nums w-6" style={{ color: 'var(--ink-3)' }}>
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span className="font-display text-xl font-medium flex-1 group-hover-text-accent transition-colors">
+                {p.title}
+              </span>
+              <div className="flex items-center gap-3">
+                <div className="w-32 h-1.5 rounded-full overflow-hidden hidden sm:block" style={{ background: 'var(--surface-2)' }}>
+                  <div
+                    className="h-full transition-all"
+                    style={{
+                      width: `${(p.pr / prMax) * 100}%`,
+                      background: 'var(--accent)',
+                    }}
+                  />
+                </div>
+                <span className="font-mono text-xs tabular-nums w-16 text-right" style={{ color: 'var(--ink-2)' }}>
+                  {p.pr.toFixed(4)}
+                </span>
+              </div>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEARCH VIEW — results + comparison toggle
+// ─────────────────────────────────────────────────────────────
+
+function SearchView({ query, results, tfResults, compareMode, setCompareMode, onNavigate, allPages }) {
+  if (results.length === 0) {
+    return (
+      <div className="fade-up">
+        <h2 className="font-display text-2xl mb-2">No matches.</h2>
+        <p className="font-body italic" style={{ color: 'var(--ink-2)' }}>
+          Nothing in the corpus contains every term in <span className="font-mono">“{query}”</span>. Try a single keyword.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fade-up">
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-5">
+        <div>
+          <div className="font-mono t-11 uppercase tk-cap" style={{ color: 'var(--ink-3)' }}>
+            results for
+          </div>
+          <h2 className="font-display text-3xl font-medium" style={{ color: 'var(--ink)' }}>
+            “{query}”
+            <span className="font-mono text-sm ml-3 align-middle" style={{ color: 'var(--ink-3)' }}>
+              · {results.length} {results.length === 1 ? 'match' : 'matches'}
+            </span>
+          </h2>
+        </div>
+        <button
+          onClick={() => setCompareMode(!compareMode)}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded font-mono text-xs uppercase tracking-wider transition-colors"
+          style={{
+            background: compareMode ? 'var(--ink)' : 'var(--paper)',
+            color: compareMode ? 'var(--paper)' : 'var(--ink)',
+            border: `1px solid ${compareMode ? 'var(--ink)' : 'var(--border-strong)'}`,
+          }}
+        >
+          <BarChart3 size={12} />
+          {compareMode ? 'hide naive ranking' : 'compare with naive ranking'}
+        </button>
+      </div>
+
+      {!compareMode ? (
+        <ul className="space-y-1">
+          {results.map((r, i) => (
+            <ResultItem
+              key={r.page.id}
+              rank={i + 1}
+              result={r}
+              onNavigate={onNavigate}
+              query={query}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div className="grid grid-cols-2 gap-5">
+          <RankColumn
+            title="without PageRank"
+            subtitle="sorted by term frequency only — what a naive search would do"
+            items={tfResults.map((r, i) => ({ ...r, rank: i + 1 }))}
+            metric={(r) => r.tf.toFixed(0)}
+            metricLabel="tf"
+            onNavigate={onNavigate}
+            otherOrder={results.map((r) => r.page.id)}
+          />
+          <RankColumn
+            title="with PageRank"
+            subtitle="tf × (1 + α · normalized PR) — link structure shifts the ordering"
+            items={results.map((r, i) => ({ ...r, rank: i + 1 }))}
+            metric={(r) => r.combined.toFixed(1)}
+            metricLabel="score"
+            onNavigate={onNavigate}
+            otherOrder={tfResults.map((r) => r.page.id)}
+            highlight
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function highlightTerms(text, query) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return text;
+  const re = new RegExp(`(${terms.map(escapeRegex).join('|')})`, 'gi');
+  const parts = text.split(re);
+  return parts.map((p, i) => {
+    if (terms.some((t) => t === p.toLowerCase())) {
+      return <mark key={i} style={{ background: 'var(--highlight)', color: 'var(--ink)', padding: '0 2px', borderRadius: '2px' }}>{p}</mark>;
+    }
+    return p;
+  });
+}
+
+function snippetFor(content, query, maxLen = 240) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const lower = content.toLowerCase();
+  let bestIdx = 0;
+  for (const t of terms) {
+    const i = lower.indexOf(t);
+    if (i >= 0) { bestIdx = i; break; }
+  }
+  const start = Math.max(0, bestIdx - 60);
+  const end = Math.min(content.length, start + maxLen);
+  let s = content.slice(start, end);
+  if (start > 0) s = '… ' + s;
+  if (end < content.length) s = s + ' …';
+  return s;
+}
+
+function ResultItem({ rank, result, onNavigate, query }) {
+  const { page, tf, pr, combined } = result;
+  const snippet = snippetFor(page.content, query);
+  return (
+    <li className="fade-up" style={{ animationDelay: `${rank * 30}ms` }}>
+      <button
+        onClick={() => onNavigate(page.id)}
+        className="group w-full text-left flex gap-5 py-4 px-4 rounded transition-colors hover-bg-surface border-b"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <span className="font-display text-2xl font-medium tabular-nums w-8 leading-none mt-1" style={{ color: 'var(--ink-3)' }}>
+          {rank}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-3 mb-1.5">
+            <h3 className="font-display text-xl font-medium group-hover-text-accent transition-colors">
+              {page.title}
+            </h3>
+            <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" style={{ color: 'var(--accent)' }} />
+          </div>
+          <p className="font-body text-sm leading-relaxed mb-2.5" style={{ color: 'var(--ink-2)' }}>
+            {highlightTerms(snippet, query)}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono t-11 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+            <span>tf <span className="tabular-nums" style={{ color: 'var(--ink-2)' }}>{tf.toFixed(0)}</span></span>
+            <span>pr <span className="tabular-nums" style={{ color: 'var(--ink-2)' }}>{pr.toFixed(4)}</span></span>
+            <span>= score <span className="tabular-nums font-semibold" style={{ color: 'var(--accent)' }}>{combined.toFixed(2)}</span></span>
+          </div>
+        </div>
+      </button>
+    </li>
+  );
+}
+
+function RankColumn({ title, subtitle, items, metric, metricLabel, onNavigate, otherOrder, highlight }) {
+  return (
+    <div>
+      <div className="mb-3 pb-2 border-b" style={{ borderColor: highlight ? 'var(--accent)' : 'var(--border-strong)' }}>
+        <h4 className={`font-display text-base font-medium ${highlight ? '' : ''}`} style={{ color: highlight ? 'var(--accent)' : 'var(--ink)' }}>
+          {title}
+        </h4>
+        <p className="font-body text-xs italic mt-0.5" style={{ color: 'var(--ink-3)' }}>{subtitle}</p>
+      </div>
+      <ol className="space-y-0.5">
+        {items.map((r) => {
+          const otherRank = otherOrder.indexOf(r.page.id) + 1;
+          const delta = otherRank - r.rank; // positive = moved up here
+          return (
+            <li key={r.page.id}>
+              <button
+                onClick={() => onNavigate(r.page.id)}
+                className="w-full text-left flex items-baseline gap-2 py-1.5 px-2 rounded text-sm hover-bg-surface transition-colors"
+              >
+                <span className="font-mono text-xs tabular-nums w-5" style={{ color: 'var(--ink-3)' }}>{r.rank}.</span>
+                <span className="font-body flex-1 truncate" style={{ color: 'var(--ink)' }}>{r.page.title}</span>
+                {highlight && delta !== 0 && (
+                  <span
+                    className="font-mono t-10 tabular-nums px-1.5 rounded"
+                    style={{
+                      background: delta > 0 ? 'var(--accent-bg)' : 'var(--surface-2)',
+                      color: delta > 0 ? 'var(--accent)' : 'var(--ink-3)',
+                    }}
+                  >
+                    {delta > 0 ? `↑${delta}` : `↓${-delta}`}
+                  </span>
+                )}
+                <span className="font-mono t-11 tabular-nums" style={{ color: 'var(--ink-2)' }}>{metric(r)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PAGE VIEW
+// ─────────────────────────────────────────────────────────────
+
+function PageView({ page, pages, pageRank, graph, onNavigate, onBack, backLabel }) {
+  const linkified = useMemo(
+    () => linkifyContent(page.content, pages, page.id, onNavigate),
+    [page, pages, onNavigate]
+  );
+  const outgoing = Array.from(graph[page.id]).map((id) => pages.find((p) => p.id === id));
+  const incoming = pages.filter((p) => graph[p.id].has(page.id));
+
+  const rank = [...pages].sort((a, b) => pageRank[b.id] - pageRank[a.id]).findIndex((p) => p.id === page.id) + 1;
+  const pr = pageRank[page.id];
+
+  return (
+    <article className="fade-up">
+      <button
+        onClick={onBack}
+        className="font-mono t-11 uppercase tk-cap mb-6 inline-flex items-center gap-1.5 hover-text-accent transition-colors"
+        style={{ color: 'var(--ink-3)' }}
+      >
+        ← {backLabel}
+      </button>
+
+      <header className="mb-6 pb-5 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="font-mono t-11 uppercase tk-cap mb-2" style={{ color: 'var(--ink-3)' }}>
+          entry № {String(pages.findIndex((p) => p.id === page.id) + 1).padStart(2, '0')}
+        </div>
+        <h1 className="font-display text-5xl lg:text-6xl font-medium lh-snug-105 tracking-tight" style={{ color: 'var(--ink)' }}>
+          {page.title}
+        </h1>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-xs uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+          <span>pagerank <span className="tabular-nums font-semibold" style={{ color: 'var(--accent)' }}>{pr.toFixed(5)}</span></span>
+          <span>rank <span className="tabular-nums" style={{ color: 'var(--ink)' }}>#{rank}</span></span>
+          <span>incoming <span className="tabular-nums" style={{ color: 'var(--ink)' }}>{incoming.length}</span></span>
+          <span>outgoing <span className="tabular-nums" style={{ color: 'var(--ink)' }}>{outgoing.length}</span></span>
+        </div>
+      </header>
+
+      <div className="font-body text-lg lh-relax-17 dropcap" style={{ color: 'var(--ink)' }}>
+        {linkified}
+      </div>
+
+      <div className="mt-10 grid sm:grid-cols-2 gap-6">
+        <LinkList title="Linked from this page" subtitle="outgoing edges" items={outgoing} onNavigate={onNavigate} pageRank={pageRank} accent />
+        <LinkList title="Pages that link here" subtitle="incoming edges" items={incoming} onNavigate={onNavigate} pageRank={pageRank} />
+      </div>
+    </article>
+  );
+}
+
+function LinkList({ title, subtitle, items, onNavigate, pageRank, accent }) {
+  const sorted = [...items].sort((a, b) => pageRank[b.id] - pageRank[a.id]);
+  return (
+    <div className="rounded p-4" style={{ background: 'var(--surface)', border: `1px solid var(--border)` }}>
+      <div className="mb-3 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
+        <h4 className="font-display text-base font-medium flex items-baseline gap-2">
+          {title}
+          <span className="font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>{items.length}</span>
+        </h4>
+        <p className="font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>{subtitle}</p>
+      </div>
+      {items.length === 0 ? (
+        <p className="font-body text-sm italic" style={{ color: 'var(--ink-3)' }}>none</p>
+      ) : (
+        <ul className="space-y-1">
+          {sorted.map((p) => (
+            <li key={p.id}>
+              <button
+                onClick={() => onNavigate(p.id)}
+                className="text-left text-sm font-body hover-text-accent transition-colors flex items-baseline gap-2 w-full"
+                style={{ color: 'var(--ink)' }}
+              >
+                <ArrowRight size={11} style={{ color: accent ? 'var(--accent)' : 'var(--ink-3)' }} />
+                <span className="flex-1">{p.title}</span>
+                <span className="font-mono t-10 tabular-nums" style={{ color: 'var(--ink-3)' }}>{pageRank[p.id].toFixed(3)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ALGO VIEW
+// ─────────────────────────────────────────────────────────────
+
+function AlgoView({ damping, iterations, onBack }) {
+  return (
+    <article className="fade-up">
+      <button
+        onClick={onBack}
+        className="font-mono t-11 uppercase tk-cap mb-6 inline-flex items-center gap-1.5 hover-text-accent transition-colors"
+        style={{ color: 'var(--ink-3)' }}
+      >
+        ← back to index
+      </button>
+
+      <h2 className="font-display text-5xl font-medium tracking-tight mb-2" style={{ color: 'var(--ink)' }}>
+        How it works
+      </h2>
+      <p className="font-body text-lg italic mb-8" style={{ color: 'var(--ink-2)' }}>
+        Three nested ideas: a random walk, a fixed point, and an iteration that finds it.
+      </p>
+
+      <Section number="i." title="The random surfer">
+        <p>
+          Imagine a person clicking links at random. They start somewhere, then at each step pick one of the outgoing links on the current page, uniformly at random. With small probability <em>1 − d</em> (the <strong>damping factor</strong>’s complement), they instead teleport to a uniformly random page.
+        </p>
+        <p>
+          The <strong>PageRank</strong> of a page is the long-run fraction of time this surfer spends there. Highly-linked pages get visited often; pages linked to <em>by</em> highly-linked pages also do, transitively. That recursion is the whole game.
+        </p>
+      </Section>
+
+      <Section number="ii." title="The formula">
+        <div className="my-4 p-5 rounded font-mono text-sm" style={{ background: 'var(--ink)', color: 'var(--paper)' }}>
+          <div className="t-10 uppercase tracking-wider mb-3" style={{ color: 'var(--gold)' }}>for each page p</div>
+          <div className="text-base">
+            PR(p) = <span style={{ color: 'var(--gold)' }}>(1 − d) / N</span>
+            <span style={{ color: '#888' }}> + </span>
+            <span style={{ color: 'var(--accent-soft)' }}>d</span>
+            <span style={{ color: '#888' }}> · </span>
+            Σ<sub style={{ color: '#888' }}>i ∈ in(p)</sub> PR(i) / L(i)
+          </div>
+          <div className="mt-4 t-11 leading-relaxed" style={{ color: '#bbb' }}>
+            d = {damping}  ·  N = corpus size  ·  in(p) = pages linking to p  ·  L(i) = out-degree of i
+          </div>
+        </div>
+        <p>
+          The first term is the teleport probability split evenly across all <em>N</em> pages. The second term collects the share of importance flowing in along incoming links — each linker <em>i</em> divides its own PR equally among its <em>L(i)</em> outgoing links.
+        </p>
+      </Section>
+
+      <Section number="iii." title="Power iteration">
+        <p>
+          The formula is recursive: PR shows up on both sides. Solving it directly means finding the principal eigenvector of an N × N matrix — hopeless when N is the World Wide Web. The trick is to <strong>iterate</strong>.
+        </p>
+        <p>
+          Start with PR uniform: every page gets <span className="font-mono">1/N</span>. Apply the formula to compute new PR values for every page. Repeat. After enough rounds, the values stop changing — they’ve <em>converged</em> to the eigenvector. For this corpus that took{' '}
+          <span className="font-mono font-semibold" style={{ color: 'var(--accent)' }}>{iterations} iterations</span>; for the real web, fifty or so suffice.
+        </p>
+        <p className="italic" style={{ color: 'var(--ink-2)' }}>
+          That convergence is what the bar chart on the right is animating: each step is one application of the formula to every page in parallel.
+        </p>
+      </Section>
+
+      <Section number="iv." title="Why this beats keyword matching">
+        <p>
+          A page that mentions the word <em>“google”</em> a hundred times isn’t necessarily about Google — it could be a spam page, or a footer linked everywhere. PageRank sidesteps the content entirely and asks a structural question: <em>do other important pages vouch for this one by linking to it?</em>
+        </p>
+        <p>
+          In this app, the final ranking multiplies the keyword score (TF) by a function of PageRank. Toggle <strong>“compare with naive ranking”</strong> on a search to see how the ordering changes when link structure is factored in.
+        </p>
+      </Section>
+    </article>
+  );
+}
+
+function Section({ number, title, children }) {
+  return (
+    <section className="mb-10">
+      <h3 className="font-display text-2xl font-medium mb-3 flex items-baseline gap-3">
+        <span className="font-mono text-sm" style={{ color: 'var(--accent)' }}>{number}</span>
+        {title}
+      </h3>
+      <div className="font-body text-base lh-relax-17 space-y-3" style={{ color: 'var(--ink)' }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GRAPH PANEL
+// ─────────────────────────────────────────────────────────────
+
+function GraphPanel({ pages, edges, layout, prScores, prMax, selectedId, hoveredId, onHover, onNavigate, graph }) {
+  const W = 380, H = 380;
+
+  const activeId = hoveredId || selectedId;
+
+  // For active node, compute outgoing/incoming for highlighting
+  const highlight = useMemo(() => {
+    if (!activeId) return { nodes: new Set(), out: new Set(), in: new Set() };
+    const out = graph[activeId];
+    const inc = new Set();
+    Object.entries(graph).forEach(([src, tgts]) => {
+      if (tgts.has(activeId)) inc.add(src);
+    });
+    const all = new Set([activeId, ...out, ...inc]);
+    return { nodes: all, out, in: inc };
+  }, [activeId, graph]);
+
+  return (
+    <div className="rounded p-4" style={{ background: 'var(--paper)', border: '1px solid var(--border-strong)' }}>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-base font-medium flex items-center gap-2">
+          <Network size={14} style={{ color: 'var(--accent)' }} />
+          Link graph
+        </h3>
+        <span className="font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+          node size ∝ pagerank
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" style={{ background: 'var(--surface)', borderRadius: '4px' }}>
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)" opacity="0.5" />
+          </marker>
+          <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+          </marker>
+        </defs>
+
+        {/* edges */}
+        <g>
+          {edges.map(([s, t], i) => {
+            const a = layout[s], b = layout[t];
+            if (!a || !b) return null;
+            const isActive = activeId && (s === activeId || t === activeId);
+            const dim = activeId && !isActive;
+            return (
+              <line
+                key={i}
+                x1={a.x} y1={a.y}
+                x2={b.x} y2={b.y}
+                stroke={isActive ? 'var(--accent)' : 'var(--ink-3)'}
+                strokeOpacity={dim ? 0.08 : isActive ? 0.7 : 0.22}
+                strokeWidth={isActive ? 1.2 : 0.7}
+                markerEnd={isActive ? 'url(#arrow-active)' : 'url(#arrow)'}
+              />
+            );
+          })}
+        </g>
+
+        {/* nodes */}
+        <g>
+          {pages.map((p) => {
+            const pos = layout[p.id];
+            if (!pos) return null;
+            const pr = prScores[p.id];
+            const r = 4 + Math.sqrt(pr / prMax) * 14;
+            const isActive = p.id === activeId;
+            const inHighlight = highlight.nodes.has(p.id);
+            const dim = activeId && !inHighlight;
+            const isOut = highlight.out.has(p.id);
+            const isIn = highlight.in.has(p.id);
+
+            return (
+              <g
+                key={p.id}
+                transform={`translate(${pos.x}, ${pos.y})`}
+                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+                opacity={dim ? 0.18 : 1}
+                onMouseEnter={() => onHover(p.id)}
+                onMouseLeave={() => onHover(null)}
+                onClick={() => onNavigate(p.id)}
+              >
+                <circle
+                  r={r}
+                  fill={isActive ? 'var(--accent)' : isOut ? 'var(--accent-soft)' : isIn ? 'var(--teal)' : 'var(--ink)'}
+                  stroke="var(--paper)"
+                  strokeWidth="2"
+                />
+                {(isActive || (!activeId && pr / prMax > 0.55)) && (
+                  <text
+                    y={-r - 5}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontFamily="'JetBrains Mono', monospace"
+                    fontWeight="500"
+                    fill="var(--ink)"
+                    style={{ paintOrder: 'stroke', stroke: 'var(--paper)', strokeWidth: 3, strokeLinejoin: 'round' }}
+                  >
+                    {p.title}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+
+      <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+        <LegendDot color="var(--accent)" label="hovered" />
+        <LegendDot color="var(--accent-soft)" label="links to" />
+        <LegendDot color="var(--teal)" label="links from" />
+        <LegendDot color="var(--ink)" label="other" />
+      </div>
+    </div>
+  );
+}
+
+function LegendDot({ color, label }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
+      {label}
+    </span>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ITERATION PANEL
+// ─────────────────────────────────────────────────────────────
+
+function IterationPanel({ history, iterStep, setIterStep, playing, setPlaying, isFinalPR, converged, iterationsRun }) {
+  const maxIter = history.length - 1;
+
+  return (
+    <div className="rounded p-4" style={{ background: 'var(--paper)', border: '1px solid var(--border-strong)' }}>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-base font-medium flex items-center gap-2">
+          <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+          Power iteration
+        </h3>
+        <span className="font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+          watch it converge
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => {
+            if (iterStep >= maxIter) setIterStep(0);
+            setPlaying(!playing);
+          }}
+          className="px-3 py-1.5 rounded font-mono t-11 uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors"
+          style={{ background: 'var(--ink)', color: 'var(--paper)' }}
+        >
+          {playing ? <><Pause size={11} /> pause</> : <><Play size={11} /> {iterStep >= maxIter ? 'replay' : 'run'}</>}
+        </button>
+        <button
+          onClick={() => { setPlaying(false); setIterStep(Math.max(0, iterStep - 1)); }}
+          className="px-2.5 py-1.5 rounded font-mono t-11 uppercase tracking-wider transition-colors"
+          style={{ border: '1px solid var(--border-strong)', color: 'var(--ink)' }}
+          disabled={iterStep === 0}
+        >
+          ← step
+        </button>
+        <button
+          onClick={() => { setPlaying(false); setIterStep(Math.min(maxIter, iterStep + 1)); }}
+          className="px-2.5 py-1.5 rounded font-mono t-11 uppercase tracking-wider transition-colors"
+          style={{ border: '1px solid var(--border-strong)', color: 'var(--ink)' }}
+          disabled={iterStep === maxIter}
+        >
+          step →
+        </button>
+        <button
+          onClick={() => { setPlaying(false); setIterStep(0); }}
+          className="ml-auto p-1.5 rounded transition-colors hover-bg-surface"
+          style={{ color: 'var(--ink-3)' }}
+          title="reset"
+        >
+          <RotateCcw size={13} />
+        </button>
+      </div>
+
+      <input
+        type="range"
+        min={0}
+        max={maxIter}
+        value={iterStep}
+        onChange={(e) => { setPlaying(false); setIterStep(parseInt(e.target.value, 10)); }}
+        className="w-full range-accent"
+      />
+
+      <div className="mt-2 flex justify-between font-mono t-10 uppercase tracking-wider tabular-nums" style={{ color: 'var(--ink-3)' }}>
+        <span>iter <span style={{ color: 'var(--ink)' }}>{iterStep}</span> / {maxIter}</span>
+        <span>
+          {iterStep === 0 && 'uniform — every page = 1/N'}
+          {iterStep > 0 && iterStep < maxIter && 'converging…'}
+          {isFinalPR && (converged ? <span style={{ color: 'var(--accent)' }}>✓ converged in {iterationsRun} iter</span> : 'max iterations')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// RANK PANEL — animated bar list of current PageRank values
+// ─────────────────────────────────────────────────────────────
+
+function RankPanel({ pages, prMax, onNavigate, selectedId, hoveredId, onHover }) {
+  return (
+    <div className="rounded p-4" style={{ background: 'var(--paper)', border: '1px solid var(--border-strong)' }}>
+      <div className="flex items-baseline justify-between mb-3">
+        <h3 className="font-display text-base font-medium flex items-center gap-2">
+          <BarChart3 size={14} style={{ color: 'var(--accent)' }} />
+          Live PageRank
+        </h3>
+        <span className="font-mono t-10 uppercase tracking-wider" style={{ color: 'var(--ink-3)' }}>
+          all {pages.length} pages
+        </span>
+      </div>
+
+      <ul className="space-y-1">
+        {pages.map((p, i) => {
+          const isActive = p.id === selectedId || p.id === hoveredId;
+          return (
+            <li key={p.id}>
+              <button
+                onClick={() => onNavigate(p.id)}
+                onMouseEnter={() => onHover(p.id)}
+                onMouseLeave={() => onHover(null)}
+                className="w-full text-left flex items-center gap-2 py-1 px-1.5 rounded transition-colors"
+                style={{ background: isActive ? 'var(--accent-bg)' : 'transparent' }}
+              >
+                <span
+                  className="font-mono t-10 tabular-nums w-5 flex-shrink-0"
+                  style={{ color: isActive ? 'var(--accent)' : 'var(--ink-3)' }}
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span
+                  className="font-body text-xs flex-1 truncate"
+                  style={{ color: isActive ? 'var(--accent)' : 'var(--ink)', fontWeight: isActive ? 600 : 400 }}
+                >
+                  {p.title}
+                </span>
+                <div className="w-20 h-1 rounded-full overflow-hidden flex-shrink-0" style={{ background: 'var(--surface-2)' }}>
+                  <div
+                    className="h-full transition-all duration-300 ease-out"
+                    style={{
+                      width: `${(p.pr / prMax) * 100}%`,
+                      background: isActive ? 'var(--accent)' : 'var(--ink)',
+                    }}
+                  />
+                </div>
+                <span
+                  className="font-mono t-10 tabular-nums w-12 text-right flex-shrink-0"
+                  style={{ color: isActive ? 'var(--accent)' : 'var(--ink-2)' }}
+                >
+                  {p.pr.toFixed(4)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
